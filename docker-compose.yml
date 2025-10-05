@@ -1,0 +1,72 @@
+networks:
+  metrics-net:
+    name: metrics-net
+    driver: bridge
+
+services:
+  nginx:
+    build: ./nginx
+    container_name: nginx-mtls
+    ports:
+      - "${NGINX_HTTPS_PORT}:443"
+    environment:
+      - INFLUX_TOKEN=${INFLUX_TOKEN}
+    volumes:
+      - ./certs:/etc/nginx/certs:ro
+    depends_on:
+      - influxdb
+      - grafana
+    networks:
+      metrics-net:
+        aliases:
+          - nginx-mtls
+
+  influxdb:
+    image: influxdb:2.7
+    container_name: influxdb
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=${DOCKER_INFLUXDB_INIT_MODE}
+      - DOCKER_INFLUXDB_INIT_USERNAME=${DOCKER_INFLUXDB_INIT_USERNAME}
+      - DOCKER_INFLUXDB_INIT_PASSWORD=${DOCKER_INFLUXDB_INIT_PASSWORD}
+      - DOCKER_INFLUXDB_INIT_ORG=${DOCKER_INFLUXDB_INIT_ORG}
+      - DOCKER_INFLUXDB_INIT_BUCKET=${DOCKER_INFLUXDB_INIT_BUCKET}
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=${DOCKER_INFLUXDB_INIT_ADMIN_TOKEN}
+    volumes:
+      - influxdb-data:/var/lib/influxdb2
+    networks:
+      - metrics-net
+
+  grafana:
+    image: grafana/grafana:latest
+    container_name: grafana
+    environment:
+      - GF_SECURITY_ADMIN_USER=admin
+      - GF_SECURITY_ADMIN_PASSWORD=admin
+      - GF_SERVER_ROOT_URL=https://localhost:${NGINX_HTTPS_PORT}
+    volumes:
+      - grafana-data:/var/lib/grafana
+      - ./grafana/datasources:/etc/grafana/provisioning/datasources
+    depends_on:
+      - influxdb
+    networks:
+      - metrics-net
+
+  metrics-client:
+    build: ./client
+    container_name: metrics-client
+    volumes:
+      - ./certs:/app/certs:ro
+    environment:
+      - NGINX_HOST=nginx-mtls
+      - NGINX_PORT=443
+      - INFLUX_ORG=${DOCKER_INFLUXDB_INIT_ORG}
+      - INFLUX_BUCKET=${DOCKER_INFLUXDB_INIT_BUCKET}
+    depends_on:
+      - nginx
+      - influxdb
+    networks:
+      - metrics-net
+
+volumes:
+  influxdb-data:
+  grafana-data:
