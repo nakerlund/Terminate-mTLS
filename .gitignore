@@ -1,19 +1,1 @@
-# Secrets och känslig data
-.env
-*.pem
-*.key
-*.srl
 
-# Docker
-docker-compose.override.yml
-
-# IDE
-.vscode/
-.idea/
-
-# OS
-.DS_Store
-Thumbs.db
-
-# Logs
-*.log
